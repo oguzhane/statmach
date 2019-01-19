@@ -86,7 +86,7 @@ func TestBasicHierarchicalTransition(t *testing.T) {
 		_, err = sm.Fire(TRIGGER1)
 		errCh <- err
 		if sm.GetCurrentState().GetStateName() != "dst1" {
-			errCh <- errors.New("expected state should be src")
+			errCh <- errors.New("expected state should be dst1")
 		}
 		doneCh <- nil
 	}, func(err error) {
