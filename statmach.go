@@ -170,7 +170,7 @@ func (sm *StateMachine) pickUpTransition(trigger string, sourceState *StateConfi
 }
 
 func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error) {
-	transRepresent, srcState, errValidTransition := sm.pickUpTransition(trigger, sm.currentState)
+	transRepresent, _, errValidTransition := sm.pickUpTransition(trigger, sm.currentState)
 	if errValidTransition != nil {
 		return false, errValidTransition
 	}
@@ -182,9 +182,6 @@ func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error
 		destState := transRepresent.destState
 		if sm.currentState.onExitFunc != nil {
 			sm.currentState.onExitFunc(trigger, transRepresent.destState.name)
-		}
-		if srcState != sm.currentState && srcState.onExitFunc != nil {
-			srcState.onExitFunc(trigger, transRepresent.destState.name)
 		}
 		sm.currentState = destState // update current state
 		if entryHandler, entryOk := destState.onEntryMap[trigger]; entryOk {
