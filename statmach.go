@@ -19,6 +19,7 @@ func newTransitionRepresentation(destState *StateConfigure, trigger string, guar
 	}
 }
 
+// StateConfigure is used to represent a state and its transitions
 type StateConfigure struct {
 	name          string
 	sm            *StateMachine
@@ -29,7 +30,7 @@ type StateConfigure struct {
 	onEntryMap    map[string]func(params ...interface{})
 }
 
-func NewStateConfigure(name string, sm *StateMachine) *StateConfigure {
+func newStateConfigure(name string, sm *StateMachine) *StateConfigure {
 	return &StateConfigure{
 		name:          name,
 		sm:            sm,
@@ -39,17 +40,18 @@ func NewStateConfigure(name string, sm *StateMachine) *StateConfigure {
 	}
 }
 
+// GetStateName returns states name
 func (c *StateConfigure) GetStateName() string {
 	return c.name
 }
 
 func (c *StateConfigure) internalPermit(trigger string, destState string, guardFunc func(params ...interface{}) bool) error {
 	if c.name == destState {
-		return errors.New("Destination state cannot be the same as name of the state via Permit method.Try to use PermitReentry")
+		return errors.New("Destination state cannot be the same as name of the state by Permit method.Try to use PermitReentry")
 	}
 	transRepresent, ok := c.transitionMap[trigger]
 	if ok {
-		return errors.New(fmt.Sprintf("a transition between from %v to %v via trigger %v already exists", c.name, transRepresent.destState.name, trigger))
+		return errors.New(fmt.Sprintf("a transition between from %v to %v via '%v' already exists", c.name, transRepresent.destState.name, trigger))
 	}
 	// append transition to map
 	transRepresent = newTransitionRepresentation(c.sm.Configure(destState), trigger, guardFunc)
@@ -57,10 +59,13 @@ func (c *StateConfigure) internalPermit(trigger string, destState string, guardF
 	return nil
 }
 
+// Permit adds a transition to destState via trigger
 func (c *StateConfigure) Permit(trigger string, destState string) error {
 	return c.internalPermit(trigger, destState, nil)
 }
 
+// PermitIf adds a conditional transition to destState via trigger.
+// transition occurs if it is allowed by guardFunc
 func (c *StateConfigure) PermitIf(trigger string, destState string, guardFunc func(params ...interface{}) bool) error {
 	if guardFunc == nil {
 		return errors.New("guardFunc cannot be nil")
@@ -71,16 +76,19 @@ func (c *StateConfigure) PermitIf(trigger string, destState string, guardFunc fu
 func (c *StateConfigure) internalPermitReentry(trigger string, guardFunc func(params ...interface{}) bool) error {
 	transRepresent, ok := c.transitionMap[trigger]
 	if ok {
-		return errors.New(fmt.Sprintf("a transition between from %v to %v via trigger %v already exists", c.name, transRepresent.destState.name, trigger))
+		return errors.New(fmt.Sprintf("a transition between from %v to %v via '%v' already exists", c.name, transRepresent.destState.name, trigger))
 	}
 	c.transitionMap[trigger] = newTransitionRepresentation(c, trigger, guardFunc)
 	return nil
 }
 
+// PermitReentry adds a transition to itself via trigger
 func (c *StateConfigure) PermitReentry(trigger string) error {
 	return c.internalPermitReentry(trigger, nil)
 }
 
+// PermitReentryIf adds a conditional transition to itself via trigger.
+// transition occurs if it is allowed by guardFunc
 func (c *StateConfigure) PermitReentryIf(trigger string, guardFunc func(params ...interface{}) bool) error {
 	if guardFunc == nil {
 		return errors.New("guardFunc cannot be nil")
@@ -88,6 +96,7 @@ func (c *StateConfigure) PermitReentryIf(trigger string, guardFunc func(params .
 	return c.internalPermitReentry(trigger, guardFunc)
 }
 
+// OnEntryFrom registers entry handler for the specified trigger when the current state changes into the state
 func (c *StateConfigure) OnEntryFrom(trigger string, handlerFn func(params ...interface{})) error {
 	if handlerFn == nil {
 		return errors.New("onEntryFrom handler cannot be nil")
@@ -100,6 +109,7 @@ func (c *StateConfigure) OnEntryFrom(trigger string, handlerFn func(params ...in
 	return nil
 }
 
+// OnExit registers exit handler for the specified trigger when the machine leaves the current state
 func (c *StateConfigure) OnExit(fn func(trigger string, destState string)) error {
 	if c.onExitFunc != nil {
 		errors.New("onExit can be handled by only just one function")
@@ -108,6 +118,7 @@ func (c *StateConfigure) OnExit(fn func(trigger string, destState string)) error
 	return nil
 }
 
+// SubstateOf registers the state as substate of parent state
 func (c *StateConfigure) SubstateOf(parentStateName string) error {
 	if c.parentState != nil {
 		return errors.New("a state could have just only one parent")
@@ -126,11 +137,13 @@ func (c *StateConfigure) SubstateOf(parentStateName string) error {
 	return nil
 }
 
+// StateMachine struct represents a state machine
 type StateMachine struct {
 	stateMap     map[string]*StateConfigure
 	currentState *StateConfigure
 }
 
+// New creates new state machine
 func New(initialState string) *StateMachine {
 	sm := &StateMachine{
 		stateMap: make(map[string]*StateConfigure),
@@ -139,16 +152,18 @@ func New(initialState string) *StateMachine {
 	return sm
 }
 
+// Configure creates a new if it doesnt exist, and returns related StateConfigure of it
 func (sm *StateMachine) Configure(stateName string) *StateConfigure {
 	sc, ok := sm.stateMap[stateName]
 	if ok {
 		return sc
 	}
-	sc = NewStateConfigure(stateName, sm)
+	sc = newStateConfigure(stateName, sm)
 	sm.stateMap[stateName] = sc
 	return sc
 }
 
+// GetCurrentState returns current state of machine
 func (sm *StateMachine) GetCurrentState() *StateConfigure {
 	return sm.currentState
 }
@@ -169,6 +184,8 @@ func (sm *StateMachine) pickUpTransition(trigger string, sourceState *StateConfi
 	return nil, nil, errors.New("a valid transition not found")
 }
 
+// Fire begins invoke from the current state via trigger
+// params will be passed to exit and entry handlers
 func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error) {
 	transRepresent, _, errValidTransition := sm.pickUpTransition(trigger, sm.currentState)
 	if errValidTransition != nil {
