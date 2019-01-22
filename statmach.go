@@ -51,7 +51,7 @@ func (c *StateConfigure) internalPermit(trigger string, destState string, guardF
 	}
 	transRepresent, ok := c.transitionMap[trigger]
 	if ok {
-		return errors.New(fmt.Sprintf("a transition between from %v to %v via '%v' already exists", c.name, transRepresent.destState.name, trigger))
+		return fmt.Errorf("a transition between from %v to %v via '%v' already exists", c.name, transRepresent.destState.name, trigger)
 	}
 	// append transition to map
 	transRepresent = newTransitionRepresentation(c.sm.Configure(destState), trigger, guardFunc)
@@ -76,7 +76,7 @@ func (c *StateConfigure) PermitIf(trigger string, destState string, guardFunc fu
 func (c *StateConfigure) internalPermitReentry(trigger string, guardFunc func(params ...interface{}) bool) error {
 	transRepresent, ok := c.transitionMap[trigger]
 	if ok {
-		return errors.New(fmt.Sprintf("a transition between from %v to %v via '%v' already exists", c.name, transRepresent.destState.name, trigger))
+		return fmt.Errorf("a transition between from %v to %v via '%v' already exists", c.name, transRepresent.destState.name, trigger)
 	}
 	c.transitionMap[trigger] = newTransitionRepresentation(c, trigger, guardFunc)
 	return nil
