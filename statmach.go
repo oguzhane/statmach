@@ -112,7 +112,7 @@ func (c *StateConfigure) OnEntryFrom(trigger string, handlerFn func(params ...in
 // OnExit registers exit handler for the specified trigger when the machine leaves the current state
 func (c *StateConfigure) OnExit(fn func(trigger string, destState string)) error {
 	if c.onExitFunc != nil {
-		errors.New("onExit can be handled by only just one function")
+		return errors.New("onExit can be handled by only just one function")
 	}
 	c.onExitFunc = fn
 	return nil
