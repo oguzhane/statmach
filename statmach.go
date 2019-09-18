@@ -3,6 +3,7 @@ package statmach
 import (
 	"errors"
 	"fmt"
+	"sync"
 )
 
 type transitionRepresentation struct {
@@ -139,6 +140,7 @@ func (c *StateConfigure) SubstateOf(parentStateName string) error {
 
 // StateMachine struct represents a state machine
 type StateMachine struct {
+	mux          sync.Mutex
 	stateMap     map[string]*StateConfigure
 	currentState *StateConfigure
 }
@@ -187,6 +189,9 @@ func (sm *StateMachine) pickUpTransition(trigger string, sourceState *StateConfi
 // Fire begins invoke from the current state via trigger
 // params will be passed to exit and entry handlers
 func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error) {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
+
 	transRepresent, _, errValidTransition := sm.pickUpTransition(trigger, sm.currentState)
 	if errValidTransition != nil {
 		return false, errValidTransition
