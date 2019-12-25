@@ -198,7 +198,7 @@ func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error
 	}
 	allowTransition := true
 	if transRepresent.guardFunc != nil {
-		allowTransition = transRepresent.guardFunc(params)
+		allowTransition = transRepresent.guardFunc(params...)
 	}
 	if allowTransition {
 		destState := transRepresent.destState
@@ -207,7 +207,7 @@ func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error
 		}
 		sm.currentState = destState // update current state
 		if entryHandler, entryOk := destState.onEntryMap[trigger]; entryOk {
-			entryHandler(params)
+			entryHandler(params...)
 		}
 	}
 	return allowTransition, nil
