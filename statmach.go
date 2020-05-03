@@ -41,7 +41,7 @@ func newStateConfigure(name string, sm *StateMachine) *StateConfigure {
 	}
 }
 
-// GetStateName returns states name
+// GetStateName returns the state name
 func (c *StateConfigure) GetStateName() string {
 	return c.name
 }
@@ -97,7 +97,7 @@ func (c *StateConfigure) PermitReentryIf(trigger string, guardFunc func(params .
 	return c.internalPermitReentry(trigger, guardFunc)
 }
 
-// OnEntryFrom registers entry handler for the specified trigger when the current state changes into the state
+// OnEntryFrom registers entry handler for the specified trigger when the current state changes to the state
 func (c *StateConfigure) OnEntryFrom(trigger string, handlerFn func(params ...interface{})) error {
 	if handlerFn == nil {
 		return errors.New("onEntryFrom handler cannot be nil")
@@ -138,7 +138,7 @@ func (c *StateConfigure) SubstateOf(parentStateName string) error {
 	return nil
 }
 
-// StateMachine struct represents a state machine
+// StateMachine represents a state machine
 type StateMachine struct {
 	mux          sync.Mutex
 	stateMap     map[string]*StateConfigure
@@ -154,7 +154,7 @@ func New(initialState string) *StateMachine {
 	return sm
 }
 
-// Configure creates a new if it doesnt exist, and returns related StateConfigure of it
+// Configure adds a state into the machine. If the state already exists, returns the existing one
 func (sm *StateMachine) Configure(stateName string) *StateConfigure {
 	sc, ok := sm.stateMap[stateName]
 	if ok {
@@ -165,12 +165,12 @@ func (sm *StateMachine) Configure(stateName string) *StateConfigure {
 	return sc
 }
 
-// GetCurrentState returns current state of machine
+// GetCurrentState returns the current state of the machine
 func (sm *StateMachine) GetCurrentState() *StateConfigure {
 	return sm.currentState
 }
 
-func (sm *StateMachine) pickUpTransition(trigger string, sourceState *StateConfigure) (transition *transitionRepresentation, srcState *StateConfigure, err error) {
+func (sm *StateMachine) lookUpTransition(trigger string, sourceState *StateConfigure) (transition *transitionRepresentation, srcState *StateConfigure, err error) {
 	currState := sourceState
 	transRepresent, ok := currState.transitionMap[trigger]
 	for {
@@ -186,13 +186,13 @@ func (sm *StateMachine) pickUpTransition(trigger string, sourceState *StateConfi
 	return nil, nil, errors.New("a valid transition not found")
 }
 
-// Fire begins invoke from the current state via trigger
+// Fire triggers off a transition from the current state via trigger
 // params will be passed to exit and entry handlers
 func (sm *StateMachine) Fire(trigger string, params ...interface{}) (bool, error) {
 	sm.mux.Lock()
 	defer sm.mux.Unlock()
 
-	transRepresent, _, errValidTransition := sm.pickUpTransition(trigger, sm.currentState)
+	transRepresent, _, errValidTransition := sm.lookUpTransition(trigger, sm.currentState)
 	if errValidTransition != nil {
 		return false, errValidTransition
 	}
