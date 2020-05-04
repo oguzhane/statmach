@@ -14,7 +14,7 @@ const (
 )
 
 func failIfExpectedStateIsNot(sm *StateMachine, expectedState string, t *testing.T) {
-	if currStateName := sm.GetCurrentState().GetStateName(); currStateName != expectedState {
+	if currStateName := sm.CurrentState().Name(); currStateName != expectedState {
 		t.Errorf("expected current state is %s, got %s", expectedState, currStateName)
 	}
 }
@@ -85,7 +85,7 @@ func TestBasicHierarchicalTransition(t *testing.T) {
 		errCh <- err
 		_, err = sm.Fire(TRIGGER1)
 		errCh <- err
-		if sm.GetCurrentState().GetStateName() != "dst1" {
+		if sm.CurrentState().Name() != "dst1" {
 			errCh <- errors.New("expected state should be dst1")
 		}
 		doneCh <- nil
