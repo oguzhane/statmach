@@ -8,78 +8,80 @@ mostly influenced by [dotnet-state-machine/stateless](https://github.com/dotnet-
 - Parametric triggers
 - Entry/exit events for states
 
-## Example Usage
+## Usage
+
+The basic example of Circuit Breaker:
+
+<img src="img/circuit-breaker-diagram.png" width="480" title="Circuit Breaker Diagram" />
+
 ```
-package main
+...
+  sm := statmach.New(Closed)
+  // closed
+  scClosed := sm.Configure(Closed)
+  scClosed.OnEntryFrom(SuccessThresholdReached, func(...interface{}) {
+  	log.Println("Entered to Closed state via SuccessThresholdReached..")
+  	failureCounter = 0
+  })
+  scClosed.OnEntryFrom(Try, func(params ...interface{}) {
+  	log.Println("Entered to Closed state via Try..")
+  	if do() != nil {
+  		failureCounter++
+  	}
+  	if failureCounter >= failureThreshold {
+  		sm.Fire(FailureThresholdReached)
+  	} else {
+  		go FireWithDelay(sm, Try)
+  	}
+  })
 
-import (
-	"fmt"
+  scClosed.Permit(FailureThresholdReached, Open)
+  scClosed.PermitReentry(Try)
 
-	"github.com/oguzhane/statmach"
-)
+  // open
+  openAnyEntryHandler := func() {
+  	time.Sleep(2 * time.Second)
+  	sm.Fire(TimeoutTimerExpired)
+  }
 
-// STATES
-const (
-	EmptyForm    = "EmptyForm"
-	Submitting   = "Submitting"
-	ErrorPage    = "ErrorPage"
-	WelcomePage  = "WelcomePage"
-	LoginPage    = "LoginPage"
-	MySuperState = "MySuperState"
-)
+  scOpen := sm.Configure(Open)
+  scOpen.OnEntryFrom(FailureThresholdReached, func(params ...interface{}) {
+  	log.Println("Entered to Open state via FailureThresholdReached..")
+  	openAnyEntryHandler()
+  })
+  scOpen.OnEntryFrom(OperationFailed, func(...interface{}) {
+  	log.Println("Entered to Open state via OperationFailed..")
+  	openAnyEntryHandler()
+  })
+  scOpen.Permit(TimeoutTimerExpired, HalfOpen)
 
-// TRIGGERS
-const (
-	SUBMIT   = "SUBMIT"
-	REGISTER = "REGISTER"
-	REJECT   = "REJECT"
-	RESOLVE  = "RESOLVE"
-	LOGOUT   = "LOGOUT"
-)
+  // half-open
+  halfOpenAnyEntryHandler := func() {
+  	if do() == nil {
+  		successCounter++
+  		if successCounter >= successThreshold {
+  			sm.Fire(SuccessThresholdReached)
+  		} else {
+  			go FireWithDelay(sm, Try)
+  		}
+  	} else {
+  		sm.Fire(OperationFailed)
+  	}
+  }
 
-func main() {
+  scHalfOpen := sm.Configure(HalfOpen)
+  scHalfOpen.OnEntryFrom(TimeoutTimerExpired, func(params ...interface{}) {
+  	log.Println("Entered to Half-Open state via TimeoutTimerExpired..")
+  	successCounter = 0
+  	halfOpenAnyEntryHandler()
+  })
+  scHalfOpen.OnEntryFrom(Try, func(...interface{}) {
+  	log.Println("Entered to Half-Open state via Try..")
+  	halfOpenAnyEntryHandler()
+  })
+  scHalfOpen.Permit(OperationFailed, Open)
+  scHalfOpen.Permit(SuccessThresholdReached, Closed)
+  scHalfOpen.PermitReentry(Try)
 
-	sm := statmach.New(EmptyForm)
-
-	sc := sm.Configure(EmptyForm)
-	err := sc.Permit(SUBMIT, Submitting)
-	Fatal(err)
-
-	sc = sm.Configure(Submitting)
-	err = sc.Permit(REJECT, ErrorPage)
-	Fatal(err)
-	err = sc.Permit(RESOLVE, WelcomePage)
-	Fatal(err)
-
-	err = sm.Configure(ErrorPage).SubstateOf(MySuperState)
-	Fatal(err)
-
-	sc = sm.Configure(WelcomePage)
-	err = sc.SubstateOf(MySuperState)
-	Fatal(err)
-	err = sc.Permit(LOGOUT, LoginPage)
-	Fatal(err)
-
-	err = sm.Configure(LoginPage).SubstateOf(MySuperState)
-	Fatal(err)
-
-	sc = sm.Configure(MySuperState)
-	err = sc.Permit(REGISTER, EmptyForm)
-	Fatal(err)
-
-	sm.Fire(SUBMIT)
-	sm.Fire(REJECT)
-
-	fmt.Println(sm.GetCurrentState().GetStateName())
-	sm.Fire(REGISTER)
-	fmt.Println(sm.GetCurrentState().GetStateName())
-	_, err = sm.Fire(LOGOUT) // transition from EmptyForm through LOGOUT is not allowed
-	fmt.Println(err)
-}
-
-func Fatal(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
+  sm.Fire(Try)
 ```
